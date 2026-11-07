@@ -12,7 +12,9 @@ const PORT = process.env.PORT || 3000;
 const ADMIN_KEY = process.env.ADMIN_KEY || "";
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "votes.json");
 const SITES = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
-const PUB = path.join(__dirname, "public");
+// Short words shown in the word cloud; must match the ballot's option values.
+const REASONS = ["crowds", "economy", "commuters", "peak events", "emergency", "students", "residents", "coverage gap", "easy approval"];
+const PUB =path.join(__dirname, "public");
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".jpg": "image/jpeg", ".svg": "image/svg+xml" };
 
 let votes = {}; // voterId -> {site, word, t}
@@ -31,7 +33,7 @@ function snapshot() {
   const words = {};
   for (const v of Object.values(votes)) {
     bySite[v.site]++;
-    if (v.word) { const k = v.site + "|" + v.word; words[k] = (words[k] || 0) + 1; }
+    for (const w of v.words || []) { const k = v.site + "|" + w; words[k] = (words[k] || 0) + 1; }
   }
   return {
     total: Object.keys(votes).length,
@@ -68,18 +70,20 @@ const server = http.createServer(async (req, res) => {
   const p = url.pathname;
 
   if (req.method === "POST" && p === "/api/vote") {
-    const { voter, site, word } = await readBody(req);
+    const { voter, site, reasons, other } = await readBody(req);
     if (typeof voter !== "string" || !/^[a-zA-Z0-9-]{8,64}$/.test(voter)) return send(res, 400, { error: "bad voter" });
     if (!SITES.includes(site)) return send(res, 400, { error: "Choose a site." });
-    const w = norm(word);
-    if (!w) return send(res, 400, { error: "Add a short reason." });
-    votes[voter] = { site, word: w, t: Date.now() };
+    const picked = (Array.isArray(reasons) ? reasons : []).filter((r) => REASONS.includes(r)).slice(0, 2);
+    const o = norm(other);
+    const words = [...new Set([...picked, ...(o ? [o] : [])])];
+    if (!picked.length && !o) return send(res, 400, { error: "Pick a reason or write your own." });
+    votes[voter] = { site, reasons: picked, other: o, words, t: Date.now() };
     persist(); broadcast();
-    return send(res, 200, { ok: true, site, word: w });
+    return send(res, 200, { ok: true, site, reasons: picked, other: o });
   }
   if (req.method === "GET" && p === "/api/me") {
     const v = votes[url.searchParams.get("voter")];
-    return send(res, 200, v ? { site: v.site, word: v.word } : {});
+    return send(res, 200, v ? { site: v.site, reasons: v.reasons || [], other: v.other || "" } : {});
   }
   if (req.method === "GET" && p === "/api/results") return send(res, 200, snapshot());
   if (req.method === "GET" && p === "/api/stream") {
@@ -102,7 +106,7 @@ const server = http.createServer(async (req, res) => {
   if (!full.startsWith(PUB)) return send(res, 404, "Not found", "text/plain");
   fs.readFile(full, (err, buf) => {
     if (err) return send(res, 404, "Not found", "text/plain");
-    res.writeHead(200, { "Content-Type": TYPES[path.extname(full)] || "application/octet-stream", "Cache-Control": "public, max-age=300" });
+    res.writeHead(200, { "Content-Type": TYPES[path.extname(full)] || "application/octet-stream", "Cache-Control": full.endsWith(".html") ? "no-cache" : "public, max-age=300" });
     res.end(buf);
   });
 });
