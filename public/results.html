@@ -86,14 +86,22 @@ function draw(d){
   if(!d.words.length||typeof WordCloud!=="function"){box.textContent="";return}
   const max=Math.max(...d.words.map(w=>w.count));
   const h=box.clientHeight,w=box.clientWidth,base=Math.min(w,h);
-  const list=d.words.map(x=>[x.word,x.count,x.site]);
-  const colorOf={};for(const x of d.words)colorOf[x.word+"|"+x.count+"|"+x.site]=COLOR[x.site];
-  // full phrases are long, so keep the size range modest and the grid fine
-  const n=d.words.length,shrink=n>14?0.8:1;
-  WordCloud(box,{list,gridSize:Math.max(8,Math.round(base/40)),weightFactor:c=>shrink*base*(0.036+0.055*Math.sqrt(c/max)),
+  const list=d.words.map(x=>[x.word,x.count,x.site]).sort((a,b)=>b[1]-a[1]);
+  const n=list.length;
+  cloud(box,list,max,base,n>24?0.75:n>14?0.88:1,++drawToken);
+}
+// Draw, then if any phrase did not fit, redraw smaller (up to ~6 times) so every answer shows.
+let drawToken=0;
+function cloud(box,list,max,base,scale,token){
+  let missed=0;
+  const onDrawn=e=>{if(e.detail&&!e.detail.drawn)missed++};
+  const onStop=()=>{box.removeEventListener("wordclouddrawn",onDrawn);box.removeEventListener("wordcloudstop",onStop);
+    if(token===drawToken&&missed&&scale>0.3)cloud(box,list,max,base,scale*0.85,token)};
+  box.addEventListener("wordclouddrawn",onDrawn);box.addEventListener("wordcloudstop",onStop);
+  WordCloud(box,{list,gridSize:Math.max(5,Math.round(base*scale/40)),weightFactor:c=>scale*base*(0.036+0.055*Math.sqrt(c/max)),
     fontFamily:'system-ui,-apple-system,"Segoe UI",sans-serif',fontWeight:800,
     color:(word,weight,fs,dist,theta,extra)=>COLOR[Array.isArray(extra)?extra[0]:extra]||"#333",
-    rotateRatio:0,shuffle:false,drawOutOfBound:false,shrinkToFit:true,backgroundColor:"transparent"});
+    rotateRatio:0,shuffle:false,drawOutOfBound:false,shrinkToFit:false,backgroundColor:"transparent",wait:0});
 }
 // wordcloud2 passes list item[2] as "extra" to color()
 let es;function connect(){es=new EventSource("/api/stream");es.onmessage=m=>draw(JSON.parse(m.data));
