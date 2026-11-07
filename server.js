@@ -13,7 +13,7 @@ const ADMIN_KEY = process.env.ADMIN_KEY || "";
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "votes.json");
 const SITES = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
 // Short words shown in the word cloud; must match the ballot's option values.
-const REASONS = ["Most people nearby", "Busy shops and offices", "Keeps commuters connected", "Handles game-day surges", "Emergency calls must work", "Students need to get online", "Residents lack good signal", "Fairer coverage for the Bronx", "Fills a coverage gap", "Easiest to get approved"];
+const REASONS = ["Big crowds at peak times", "Used very often", "In use around the clock", "Needs high-quality signal", "Important for city revenue", "Critical in emergencies", "Important to the city", "Serves vulnerable people", "Fills a coverage gap", "Easiest to install"];
 const PUB =path.join(__dirname, "public");
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".jpg": "image/jpeg", ".svg": "image/svg+xml" };
 
