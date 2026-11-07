@@ -13,7 +13,7 @@ const ADMIN_KEY = process.env.ADMIN_KEY || "";
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "votes.json");
 const SITES = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
 // Short words shown in the word cloud; must match the ballot's option values.
-const REASONS = ["crowds", "economy", "commuters", "peak events", "emergency", "students", "residents", "coverage gap", "easy approval"];
+const REASONS = ["Most people nearby", "Busy shops and offices", "Keeps commuters connected", "Handles game-day surges", "Emergency calls must work", "Students need to get online", "Residents lack good signal", "Fairer coverage for the Bronx", "Fills a coverage gap", "Easiest to get approved"];
 const PUB =path.join(__dirname, "public");
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".jpg": "image/jpeg", ".svg": "image/svg+xml" };
 
@@ -26,7 +26,7 @@ function persist() {
 }
 
 function norm(w) {
-  return String(w || "").toLowerCase().replace(/[^\p{L}\p{N}\s'-]/gu, "").replace(/\s+/g, " ").trim().slice(0, 30);
+  return String(w || "").toLowerCase().replace(/[^\p{L}\p{N}\s'-]/gu, "").replace(/\s+/g, " ").trim().slice(0, 40);
 }
 function snapshot() {
   const bySite = Object.fromEntries(SITES.map((s) => [s, 0]));
@@ -73,17 +73,16 @@ const server = http.createServer(async (req, res) => {
     const { voter, site, reasons, other } = await readBody(req);
     if (typeof voter !== "string" || !/^[a-zA-Z0-9-]{8,64}$/.test(voter)) return send(res, 400, { error: "bad voter" });
     if (!SITES.includes(site)) return send(res, 400, { error: "Choose a site." });
-    const picked = (Array.isArray(reasons) ? reasons : []).filter((r) => REASONS.includes(r)).slice(0, 2);
-    const o = norm(other);
-    const words = [...new Set([...picked, ...(o ? [o] : [])])];
-    if (!picked.length && !o) return send(res, 400, { error: "Pick a reason or write your own." });
-    votes[voter] = { site, reasons: picked, other: o, words, t: Date.now() };
+    const picked = [...new Set((Array.isArray(reasons) ? reasons : []).filter((r) => REASONS.includes(r)))].slice(0, 3);
+    const own = [...new Set((Array.isArray(other) ? other : [other]).map(norm).filter(Boolean))].slice(0, 3);
+    if (!picked.length && !own.length) return send(res, 400, { error: "Pick a reason or write your own." });
+    votes[voter] = { site, reasons: picked, other: own, words: [...picked, ...own], t: Date.now() };
     persist(); broadcast();
-    return send(res, 200, { ok: true, site, reasons: picked, other: o });
+    return send(res, 200, { ok: true, site, reasons: picked, other: own });
   }
   if (req.method === "GET" && p === "/api/me") {
     const v = votes[url.searchParams.get("voter")];
-    return send(res, 200, v ? { site: v.site, reasons: v.reasons || [], other: v.other || "" } : {});
+    return send(res, 200, v ? { site: v.site, reasons: v.reasons || [], other: v.other || [] } : {});
   }
   if (req.method === "GET" && p === "/api/results") return send(res, 200, snapshot());
   if (req.method === "GET" && p === "/api/stream") {

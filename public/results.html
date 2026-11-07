@@ -79,7 +79,9 @@ function draw(d){
   const h=box.clientHeight,w=box.clientWidth,base=Math.min(w,h);
   const list=d.words.map(x=>[x.word,x.count,x.site]);
   const colorOf={};for(const x of d.words)colorOf[x.word+"|"+x.count+"|"+x.site]=COLOR[x.site];
-  WordCloud(box,{list,gridSize:Math.round(base/60),weightFactor:c=>base*(0.055+0.085*Math.sqrt(c/max)),
+  // full phrases are long, so keep the size range modest and the grid fine
+  const n=d.words.length,shrink=n>14?0.8:1;
+  WordCloud(box,{list,gridSize:Math.max(8,Math.round(base/40)),weightFactor:c=>shrink*base*(0.036+0.055*Math.sqrt(c/max)),
     fontFamily:'system-ui,-apple-system,"Segoe UI",sans-serif',fontWeight:800,
     color:(word,weight,fs,dist,theta,extra)=>COLOR[Array.isArray(extra)?extra[0]:extra]||"#333",
     rotateRatio:0,shuffle:false,drawOutOfBound:false,shrinkToFit:true,backgroundColor:"transparent"});
