@@ -18,6 +18,7 @@ h1{margin:0;font-size:clamp(18px,2.2vw,26px)}
 .map{position:relative;align-self:center;justify-self:center;width:100%;max-width:min(100%,calc(100vh - 110px));aspect-ratio:1/1}
 .map svg{width:100%;height:100%;display:block;border-radius:8px;border:1px solid var(--line)}
 .bub circle{transition:r .6s cubic-bezier(.3,1.3,.5,1)}
+.bub text{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:none}
 .attr{position:absolute;right:8px;bottom:6px;font-size:10px;color:#666;background:rgba(255,255,255,.75);padding:1px 5px;border-radius:3px}
 .cloudbox{position:relative;min-height:300px}
 #cloud{position:absolute;inset:0;width:100%;height:100%}
@@ -59,18 +60,26 @@ const NS="http://www.w3.org/2000/svg";
 const g=document.getElementById("bubbles");const nodes={};
 for(const [k,[x,y]] of Object.entries(SITES)){
   const e=document.createElementNS(NS,"g");e.setAttribute("class","bub");
-  e.innerHTML=`<circle cx="${x}" cy="${y}" r="7" fill="${COLOR[k]}" fill-opacity=".9" stroke="${COLOR[k]}" stroke-width="3"></circle><text x="${x}" y="${y+6}" text-anchor="middle" font-size="17" font-weight="800" fill="#fff"></text>`;
+  e.innerHTML=`<circle cx="${x}" cy="${y}" r="14" fill="${COLOR[k]}" fill-opacity=".9" stroke="${COLOR[k]}" stroke-width="4"></circle>`+
+    `<text class="cnt" x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-weight="800" fill="#fff" stroke="rgba(0,0,0,.35)" stroke-width="3" paint-order="stroke"></text>`+
+    `<text class="lbl" x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="18" font-weight="800" fill="${COLOR[k]}" stroke="#fff" stroke-width="6" paint-order="stroke">${k}</text>`;
   g.append(e);nodes[k]=e;
 }
-// radius grows gently so close sites (B, C, E) stay readable with ~20 votes
-const rad=n=>n?Math.min(62,16+11*Math.sqrt(n)):7;
+// circle AREA is proportional to votes; 1 vote = r 36, 4 = r 58, 9 = r 80
+const rad=n=>n?Math.min(120,14+22*Math.sqrt(n)):14;
 let last="";
 function draw(d){
   document.getElementById("n").textContent=d.total;
   const order=Object.keys(SITES).sort((a,b)=>d.bySite[b]-d.bySite[a]);
-  for(const k of order){const n=d.bySite[k],e=nodes[k],c=e.querySelector("circle");
-    c.setAttribute("r",rad(n));c.setAttribute("fill-opacity",n?".55":".9");
-    e.querySelector("text").textContent=n?k:"";g.append(e)}
+  for(const k of order){const n=d.bySite[k],e=nodes[k],c=e.querySelector("circle"),r=rad(n),y=SITES[k][1];
+    c.setAttribute("r",r);c.setAttribute("fill-opacity",n?".5":".9");
+    const cnt=e.querySelector(".cnt"),lbl=e.querySelector(".lbl");
+    // count in the middle, site letter just under it, both inside the circle
+    const fs=Math.round(Math.min(60,16+r*0.45));
+    cnt.textContent=n||"";cnt.setAttribute("font-size",fs);cnt.setAttribute("y",n?y-fs*0.22:y);
+    lbl.setAttribute("font-size",n?Math.round(Math.max(16,fs*0.5)):16);lbl.setAttribute("y",n?y+fs*0.52:y);
+    lbl.setAttribute("fill","#fff");lbl.setAttribute("stroke",n?"rgba(0,0,0,.35)":"none");lbl.setAttribute("stroke-width","3");
+    g.append(e)}
   const key=JSON.stringify(d.words);if(key===last)return;last=key;
   const box=document.getElementById("cloud");
   document.getElementById("empty").hidden=d.words.length>0;
