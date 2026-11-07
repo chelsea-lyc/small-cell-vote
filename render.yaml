@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: small-cell-vote
+    runtime: node
+    plan: free
+    buildCommand: "true"
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: ADMIN_KEY
+        generateValue: true

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Small Cell Vote</title>
+<style>
+:root{--bg:#eef1f0;--card:#fff;--ink:#1b2320;--muted:#5f6b66;--line:#d6ddd9;--accent:#145240;--err:#a4471c}
+@media (prefers-color-scheme:dark){:root{--bg:#121816;--card:#1b2320;--ink:#e6ece9;--muted:#9aa8a1;--line:#2e3a35;--accent:#6fcfa9;--err:#f0925f;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:640px;margin:0 auto;padding:20px 16px 48px;display:grid;gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px}
+.top{border-top:8px solid var(--accent)}
+h1{font-size:24px;margin:0 0 6px;line-height:1.2}
+p{margin:0;color:var(--muted)}
+.q{font-weight:600;font-size:17px;margin:0 0 12px}
+.q span{color:var(--err)}
+label.opt{display:flex;gap:12px;align-items:flex-start;padding:10px 4px;border-radius:6px;cursor:pointer}
+label.opt:hover{background:var(--bg)}
+input[type=radio]{width:20px;height:20px;margin:2px 0 0;accent-color:var(--accent);flex:none}
+.opt b{font-weight:600}
+.opt small{display:block;color:var(--muted);font-size:14px}
+input[type=text]{width:100%;font:inherit;padding:10px 2px;border:0;border-bottom:1.5px solid var(--line);background:transparent;color:var(--ink)}
+input[type=text]:focus{outline:none;border-bottom-color:var(--accent)}
+button{font:inherit;font-weight:600;padding:10px 22px;border:0;border-radius:6px;background:var(--accent);color:var(--card);cursor:pointer}
+button:disabled{opacity:.5}
+.err{color:var(--err);font-size:14px;min-height:1.2em}
+.done{text-align:center;display:grid;gap:10px}
+.done a{color:var(--accent);font-weight:600}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <section class="card top">
+    <h1>One new small cell: where does it go?</h1>
+    <p>South Bronx. Assume equal cost, power and backhaul at every site. Answers are anonymous.</p>
+  </section>
+
+  <form id="f" novalidate>
+    <section class="card" style="margin-bottom:14px">
+      <p class="q">Where would you put the one new small cell? <span>*</span></p>
+      <div id="opts"></div>
+    </section>
+    <section class="card" style="margin-bottom:14px">
+      <p class="q">In 1–3 words, why that site? <span>*</span></p>
+      <input type="text" id="word" maxlength="30" placeholder="Your answer" autocomplete="off">
+    </section>
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      <button id="go" type="submit">Submit</button>
+      <span class="err" id="err"></span>
+    </div>
+  </form>
+
+  <section class="card done" id="done" hidden>
+    <h1>Thanks, your vote is in.</h1>
+    <p id="mine"></p>
+    <a href="#" id="edit">Change my answer</a>
+  </section>
+</main>
+<script>
+const SITES=[["A","The Hub","shops, daytime crowds"],["B","Bronx County Building","courts, offices"],["C","161 St station entrance","subway transfer"],["D","Melrose Metro-North","commuter rail"],["E","Yankee Stadium","full on game days"],["F","Hostos Community College","students, classes"],["G","Lincoln Hospital","emergency care"],["H","Grand Concourse homes","apartments near 165 St"],["I","Melrose homes","blocks near 156 St"]];
+const $=s=>document.querySelector(s);
+let voter;try{voter=localStorage.getItem("voter")}catch(e){}
+if(!voter){voter=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)+Date.now());try{localStorage.setItem("voter",voter)}catch(e){}}
+for(const [id,n,d] of SITES){const l=document.createElement("label");l.className="opt";
+  l.innerHTML=`<input type="radio" name="site" value="${id}"><span><b>${id} · ${n}</b><small>${d}</small></span>`;$("#opts").append(l)}
+function showDone(v){$("#f").hidden=true;$("#done").hidden=false;
+  const s=SITES.find(x=>x[0]===v.site);$("#mine").textContent=`${v.site} · ${s?s[1]:""} — “${v.word}”`}
+fetch("/api/me?voter="+encodeURIComponent(voter)).then(r=>r.json()).then(v=>{if(v.site){
+  document.querySelector(`input[value="${v.site}"]`).checked=true;$("#word").value=v.word;showDone(v)}}).catch(()=>{});
+$("#edit").onclick=e=>{e.preventDefault();$("#done").hidden=true;$("#f").hidden=false};
+$("#f").onsubmit=async e=>{e.preventDefault();$("#err").textContent="";
+  const site=(document.querySelector("input[name=site]:checked")||{}).value,word=$("#word").value.trim();
+  if(!site){$("#err").textContent="Choose a site.";return}
+  if(!word){$("#err").textContent="Add a short reason.";return}
+  $("#go").disabled=true;
+  try{const r=await fetch("/api/vote",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({voter,site,word})});
+    const j=await r.json();if(!r.ok)throw new Error(j.error||"Could not submit.");showDone(j)}
+  catch(err){$("#err").textContent=err.message.includes("fetch")?"No connection. Try again.":err.message}
+  $("#go").disabled=false};
+</script>
+</body>
+</html>

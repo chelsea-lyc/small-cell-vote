@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Small Cell Results</title>
+<style>
+:root{--bg:#ffffff;--ink:#1b2320;--muted:#6a7570;--line:#e2e7e4;
+  --sA:#d1495b;--sB:#e07a1f;--sC:#2a72c7;--sD:#14958f;--sE:#7b4fc9;--sF:#b38a00;--sG:#2e9e5b;--sH:#c2479b;--sI:#5f6b7a}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column}
+header{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:14px 24px 0}
+h1{margin:0;font-size:clamp(18px,2.2vw,26px)}
+.count{font-variant-numeric:tabular-nums;color:var(--muted);font-size:15px}
+.count b{color:var(--ink);font-size:22px}
+.grid{flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;padding:14px 24px 20px;min-height:0}
+.map{position:relative;align-self:center;justify-self:center;width:100%;max-width:min(100%,calc(100vh - 110px));aspect-ratio:1/1}
+.map svg{width:100%;height:100%;display:block;border-radius:8px;border:1px solid var(--line)}
+.bub circle{transition:r .6s cubic-bezier(.3,1.3,.5,1)}
+.attr{position:absolute;right:8px;bottom:6px;font-size:10px;color:#666;background:rgba(255,255,255,.75);padding:1px 5px;border-radius:3px}
+.cloudbox{position:relative;min-height:300px}
+#cloud{position:absolute;inset:0;width:100%;height:100%}
+.empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted)}
+.admin{position:fixed;right:10px;bottom:8px;display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
+.admin button,.admin input{font:inherit;font-size:12px;padding:3px 8px;border:1px solid var(--line);border-radius:4px;background:#fff;color:var(--muted)}
+.admin a{color:var(--muted)}
+[hidden]{display:none!important}
+@media (max-width:800px){.grid{grid-template-columns:1fr}.cloudbox{min-height:60vh}}
+@media (prefers-reduced-motion:reduce){.bub circle{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>One new small cell: where does it go?</h1>
+  <span class="count"><b id="n">0</b> votes</span>
+</header>
+<div class="grid">
+  <div class="map">
+    <svg viewBox="0 0 1000 1000" role="img" aria-label="Vote bubbles on a map of the South Bronx">
+      <image href="/map.jpg" width="1000" height="1000"></image>
+      <g id="bubbles"></g>
+    </svg>
+    <span class="attr">Esri, OpenStreetMap contributors</span>
+  </div>
+  <div class="cloudbox"><div id="cloud"></div><div class="empty" id="empty">Reasons appear here as votes come in.</div></div>
+</div>
+<div class="admin">
+  <a href="#" id="resetLink">reset</a>
+  <span id="adminForm" hidden><input id="key" type="password" placeholder="admin key" size="10"><button id="clear">Clear all votes</button></span>
+  <span id="adminMsg"></span>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
+<script>
+const SITES={A:[630,869],B:[408,348],C:[312,277],D:[718,373],E:[293,181],F:[282,763],G:[370,839],H:[527,115],I:[711,626]};
+const css=getComputedStyle(document.documentElement);
+const COLOR=Object.fromEntries(Object.keys(SITES).map(k=>[k,css.getPropertyValue("--s"+k).trim()]));
+const NS="http://www.w3.org/2000/svg";
+const g=document.getElementById("bubbles");const nodes={};
+for(const [k,[x,y]] of Object.entries(SITES)){
+  const e=document.createElementNS(NS,"g");e.setAttribute("class","bub");
+  e.innerHTML=`<circle cx="${x}" cy="${y}" r="7" fill="${COLOR[k]}" fill-opacity=".9" stroke="${COLOR[k]}" stroke-width="3"></circle><text x="${x}" y="${y+6}" text-anchor="middle" font-size="17" font-weight="800" fill="#fff"></text>`;
+  g.append(e);nodes[k]=e;
+}
+// radius grows gently so close sites (B, C, E) stay readable with ~20 votes
+const rad=n=>n?Math.min(62,16+11*Math.sqrt(n)):7;
+let last="";
+function draw(d){
+  document.getElementById("n").textContent=d.total;
+  const order=Object.keys(SITES).sort((a,b)=>d.bySite[b]-d.bySite[a]);
+  for(const k of order){const n=d.bySite[k],e=nodes[k],c=e.querySelector("circle");
+    c.setAttribute("r",rad(n));c.setAttribute("fill-opacity",n?".55":".9");
+    e.querySelector("text").textContent=n?k:"";g.append(e)}
+  const key=JSON.stringify(d.words);if(key===last)return;last=key;
+  const box=document.getElementById("cloud");
+  document.getElementById("empty").hidden=d.words.length>0;
+  if(!d.words.length||typeof WordCloud!=="function"){box.textContent="";return}
+  const max=Math.max(...d.words.map(w=>w.count));
+  const h=box.clientHeight,w=box.clientWidth,base=Math.min(w,h);
+  const list=d.words.map(x=>[x.word,x.count,x.site]);
+  const colorOf={};for(const x of d.words)colorOf[x.word+"|"+x.count+"|"+x.site]=COLOR[x.site];
+  WordCloud(box,{list,gridSize:Math.round(base/60),weightFactor:c=>base*(0.055+0.085*Math.sqrt(c/max)),
+    fontFamily:'system-ui,-apple-system,"Segoe UI",sans-serif',fontWeight:800,
+    color:(word,weight,fs,dist,theta,extra)=>COLOR[Array.isArray(extra)?extra[0]:extra]||"#333",
+    rotateRatio:0,shuffle:false,drawOutOfBound:false,shrinkToFit:true,backgroundColor:"transparent"});
+}
+// wordcloud2 passes list item[2] as "extra" to color()
+let es;function connect(){es=new EventSource("/api/stream");es.onmessage=m=>draw(JSON.parse(m.data));
+  es.onerror=()=>{es.close();setTimeout(connect,3000)}}
+connect();
+let rt;addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>{last="";fetch("/api/results").then(r=>r.json()).then(draw)},300)});
+document.getElementById("resetLink").onclick=e=>{e.preventDefault();document.getElementById("adminForm").hidden=false;document.getElementById("key").focus()};
+document.getElementById("clear").onclick=async()=>{const m=document.getElementById("adminMsg");
+  const r=await fetch("/api/clear",{method:"POST",headers:{"x-admin-key":document.getElementById("key").value}});
+  m.textContent=r.ok?"Cleared.":"Wrong key.";if(r.ok)document.getElementById("adminForm").hidden=true};
+</script>
+</body>
+</html>

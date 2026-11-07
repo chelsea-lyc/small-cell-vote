@@ -1,0 +1,9 @@
+{
+  "name": "small-cell-vote",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Live class vote: where should one new small cell go in the South Bronx?",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}
